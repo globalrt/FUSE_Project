@@ -25,6 +25,15 @@
 /* Begin PBXFileReference section */
 		DFAF5AD71C082B6C005691FA /* FUSE_Project */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = FUSE_Project; sourceTree = BUILT_PRODUCTS_DIR; };
 		DFAF5ADA1C082B6C005691FA /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		DFAF5AE11C084A97005691FA /* fuse.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse.h; sourceTree = "<group>"; };
+		DFAF5AE21C084AAC005691FA /* fuse_common_compat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse_common_compat.h; sourceTree = "<group>"; };
+		DFAF5AE31C084AAC005691FA /* fuse_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse_common.h; sourceTree = "<group>"; };
+		DFAF5AE41C084AAC005691FA /* fuse_compat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse_compat.h; sourceTree = "<group>"; };
+		DFAF5AE51C084AAC005691FA /* fuse_kernel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse_kernel.h; sourceTree = "<group>"; };
+		DFAF5AE61C084AAC005691FA /* fuse_lowlevel_compat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse_lowlevel_compat.h; sourceTree = "<group>"; };
+		DFAF5AE71C084AAC005691FA /* fuse_lowlevel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse_lowlevel.h; sourceTree = "<group>"; };
+		DFAF5AE81C084AAC005691FA /* fuse_opt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse_opt.h; sourceTree = "<group>"; };
+		DFAF5AE91C084AB4005691FA /* cuse_lowlevel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cuse_lowlevel.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,6 +66,15 @@
 		DFAF5AD91C082B6C005691FA /* FUSE_Project */ = {
 			isa = PBXGroup;
 			children = (
+				DFAF5AE11C084A97005691FA /* fuse.h */,
+				DFAF5AE21C084AAC005691FA /* fuse_common_compat.h */,
+				DFAF5AE31C084AAC005691FA /* fuse_common.h */,
+				DFAF5AE41C084AAC005691FA /* fuse_compat.h */,
+				DFAF5AE51C084AAC005691FA /* fuse_kernel.h */,
+				DFAF5AE61C084AAC005691FA /* fuse_lowlevel_compat.h */,
+				DFAF5AE71C084AAC005691FA /* fuse_lowlevel.h */,
+				DFAF5AE81C084AAC005691FA /* fuse_opt.h */,
+				DFAF5AE91C084AB4005691FA /* cuse_lowlevel.h */,
 				DFAF5ADA1C082B6C005691FA /* main.c */,
 			);
 			path = FUSE_Project;
@@ -206,6 +224,7 @@
 		DFAF5ADF1C082B6C005691FA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				OTHER_CFLAGS = "-D_FILE_OFFSET_BITS=64";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -213,6 +232,7 @@
 		DFAF5AE01C082B6C005691FA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				OTHER_CFLAGS = "-D_FILE_OFFSET_BITS=64";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

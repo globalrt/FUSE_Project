@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <sys/stat.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
 
+#define FUSE_USE_VERSION 29
+#include "fuse.h" // DEBUG
 
 typedef struct inode inode;
 
