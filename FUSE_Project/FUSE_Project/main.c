@@ -4,7 +4,11 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
 
+#define FUSE_USE_VERSION 29
+#include "fuse.h" // DEBUG
 
 typedef enum {
     NO_ERROR = 0,
@@ -20,8 +24,8 @@ typedef struct inode inode;
 
 
 
+typedef struct inode inode;
 struct inode {
-
     struct stat attr;
     
     char name[256];
@@ -35,6 +39,7 @@ struct inode {
     void *data;
 };
 
+static struct statvfs superblock;
 static inode root;
 
 typedef struct search_result search_result;
@@ -234,6 +239,8 @@ void remove_inode(search_result *res) {
     free(exact);
 }
 
-int main(int argc, const char * argv[]) {
-    return 1;
+int main(int argc, char *argv[])
+{
+    return fuse_main(argc, argv, &asdfs_oper, NULL);
 }
+
