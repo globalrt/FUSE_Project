@@ -31,7 +31,7 @@ static struct statvfs superblock;
 static inode root;
 
 // 파일 시스템 초기화
-void *os_init (struct fuse_conn_info *conn) {
+void *asdfs_init (struct fuse_conn_info *conn) {
     time_t current_time = time(NULL);
     struct fuse_context *context = fuse_get_context();
     
@@ -68,12 +68,12 @@ void *os_init (struct fuse_conn_info *conn) {
     return NULL;
 }
 
-static struct fuse_operations os_oper = {
-    .init       = os_init
+static struct fuse_operations asdfs_oper = {
+    .init       = asdfs_init
 };
 
 int main(int argc, char *argv[])
 {
-    return fuse_main(argc, argv, &os_oper, NULL);
+    return fuse_main(argc, argv, &asdfs_oper, NULL);
 }
 
