@@ -6,7 +6,7 @@
 #include <sys/statvfs.h>
 
 #define FUSE_USE_VERSION 29
-#include "fuse.h" // DEBUG
+//#include "fuse.h" // DEBUG
 
 #define BLOCK_SIZE_KB   4     // 블록 크기 (KB)
 #define VOLUME_SIZE_MB  100   // 파일 시스템 볼륨 크기 (MB)
@@ -59,7 +59,6 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
     
     res->parent = parent;
     
-    
     if(parent->firstChild==NULL){
         res->left_inode=NULL;
         res->exact_inode=NULL;
@@ -68,7 +67,6 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
         return EXACT_NOT_FOUND; // no child.
     }
     
-    
     inode *temp = parent->firstChild;
     
     if (strcmp(search_name,parent->firstChild->name)<0) {
@@ -76,7 +74,6 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
         res->exact_inode = NULL;
         res->right_inode = temp;
         return EXACT_NOT_FOUND;
-        
     }
 
     if (strcmp(search_name,parent->lastChild->name)>0) {
@@ -84,7 +81,6 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
         res->exact_inode = NULL;
         res->right_inode = NULL;
         return EXACT_NOT_FOUND;
-        
     }
     
     while (strcmp(search_name,temp->name)>0) {
@@ -103,13 +99,10 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
         res->right_inode = temp;
         return EXACT_NOT_FOUND;
     }
-    
-    
-    
 }
 
 
-asdfs_errno find_inode(char *path,search_result *res){
+asdfs_errno find_inode(const char *path,search_result *res){
     
     res->parent = NULL;
     res->left_inode = NULL;
@@ -139,15 +132,12 @@ asdfs_errno find_inode(char *path,search_result *res){
         else if (next_name) {
             return PATH_NOT_FOUND;
         }
-
         current_name = next_name;
     }
-    
     return return_code;
-    
 }
 
-inode *create_inode(char *path, struct stat attr) {
+inode *create_inode(const char *path, struct stat attr) {
     
     char *current_filename = strtok(path, "/");
     
@@ -234,7 +224,7 @@ void remove_inode(search_result *res) {
     
     free(exact);
 }
-
+/*
 // 파일 시스템 초기화
 void *asdfs_init (struct fuse_conn_info *conn) {
     time_t current_time = time(NULL);
@@ -276,8 +266,29 @@ void *asdfs_init (struct fuse_conn_info *conn) {
 static struct fuse_operations asdfs_oper = {
     .init   = asdfs_init
 };
+*/
 
 int main(int argc, char *argv[])
 {
-    return fuse_main(argc, argv, &asdfs_oper, NULL);
+    search_result res;
+    struct stat attr;
+    
+    char path_1[100] = "/a";
+    char path_2[100] = "/b";
+    
+    if (find_inode(path_1,&res)!=PATH_NOT_FOUND){
+        insert_inode(&res,create_inode(path_1,attr));
+    }
+    
+    if (find_inode(path_2,&res)!=PATH_NOT_FOUND){
+        insert_inode(&res,create_inode(path_2,attr));
+    }
+    
+    if (find_inode(path_2,&res)!=PATH_NOT_FOUND){
+        remove_inode(&res);
+    }
+    
+    
+    
+    return 0; //fuse_main(argc, argv, &asdfs_oper, NULL);
 }
