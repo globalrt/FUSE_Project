@@ -40,6 +40,7 @@ typedef enum {
     
     EXACT_FOUND,
     EXACT_NOT_FOUND,
+    HEAD_NOT_DIRECTORY,
     HEAD_NOT_FOUND,
     
     GENERAL_ERROR
@@ -123,6 +124,10 @@ asdfs_errno find_inode(const char *path, search_result *res){
     char * curr_comp = strtok(tok_path, "/");
     
     while (curr_comp!=NULL) {
+        if (!(parent->attr.st_mode & S_IFDIR)) {
+            return HEAD_NOT_DIRECTORY;
+        }
+        
         char * next_comp = strtok(NULL, "/");
         
         return_code=child_search(parent, curr_comp, res);
