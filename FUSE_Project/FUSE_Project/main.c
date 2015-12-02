@@ -152,10 +152,10 @@ inode *create_inode(const char *path, struct stat attr) {
     return new;
 }
 
-void insert_inode(search_result *res, inode *new) {
-    inode *parent = res->parent;
-    inode *left = res->left_inode;
-    inode *right = res->right_inode;
+void insert_inode(search_result res, inode *new) {
+    inode *parent = res.parent;
+    inode *left = res.left_inode;
+    inode *right = res.right_inode;
     
     new->parent = parent;
     
@@ -187,11 +187,11 @@ void insert_inode(search_result *res, inode *new) {
     }
 }
 
-void remove_inode(search_result *res) {
-    inode *parent = res->parent;
-    inode *left = res->left_inode;
-    inode *exact = res->exact_inode;
-    inode *right = res->right_inode;
+void remove_inode(search_result res) {
+    inode *parent = res.parent;
+    inode *left = res.left_inode;
+    inode *exact = res.exact_inode;
+    inode *right = res.right_inode;
     
     if (left != NULL && right != NULL){
         left->rightSibling = right;
