@@ -113,42 +113,41 @@ asdfs_errno find_inode(const char *path, search_result *res){
     
     asdfs_errno return_code = NO_ERROR;
     
-    char * current_name = strtok(path, "/");
+    char * curr_comp = strtok(path, "/");
     
-    while (current_name!=NULL) {
+    while (curr_comp!=NULL) {
+        char * next_comp = strtok(NULL, "/");
         
-        char * next_name = strtok(NULL, "/");
-        
-        return_code=child_search(parent, current_name, res);
+        return_code=child_search(parent, curr_comp, res);
 
         if (return_code==EXACT_FOUND) {
             parent = res->exact_inode;
         }
-        else if (next_name) {
+        else if (next_comp) {
             return HEAD_NOT_FOUND;
         }
-        current_name = next_name;
+        curr_comp = next_comp;
     }
+
     return return_code;
 }
 
 inode *create_inode(const char *path, struct stat attr) {
-    char *current_filename = strtok(path, "/");
-    
-    while (current_filename!=NULL) {
-        char *next_filename = strtok(NULL, "/");
-        if (next_filename==NULL) {
+    char *curr_comp = strtok(path, "/");
+
+    while (curr_comp!=NULL) {
+        char *next_comp = strtok(NULL, "/");
+        if (next_comp==NULL) {
             break;
         }
-        current_filename = next_filename;
+        curr_comp = next_comp;
     }
 
     inode *new = (inode*)malloc(sizeof(inode));
     memset(new, 0, sizeof(inode));
     new->attr = attr;
     
-    strncpy(new->name, current_filename, 255);
-    
+    strncpy(new->name, curr_comp, MAX_FILENAME);
     return new;
 }
 
