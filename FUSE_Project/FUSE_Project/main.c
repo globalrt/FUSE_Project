@@ -27,14 +27,12 @@ struct inode {
 };
 
 typedef struct search_result search_result;
-struct search_result{
-    
+struct search_result {
+    inode *parent;
+
     inode *left_inode;
     inode *exact_inode;
     inode *right_inode;
-    
-    inode *parent;
-    
 };
 
 typedef enum {
@@ -57,7 +55,6 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
     
     res->parent = parent;
     
-    
     if(parent->firstChild==NULL){
         res->left_inode=NULL;
         res->exact_inode=NULL;
@@ -66,7 +63,6 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
         return EXACT_NOT_FOUND; // no child.
     }
     
-    
     inode *temp = parent->firstChild;
     
     if (strcmp(search_name,parent->firstChild->name)<0) {
@@ -74,7 +70,6 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
         res->exact_inode = NULL;
         res->right_inode = temp;
         return EXACT_NOT_FOUND;
-        
     }
 
     if (strcmp(search_name,parent->lastChild->name)>0) {
@@ -82,7 +77,6 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
         res->exact_inode = NULL;
         res->right_inode = NULL;
         return EXACT_NOT_FOUND;
-        
     }
     
     while (strcmp(search_name,temp->name)>0) {
@@ -101,14 +95,10 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
         res->right_inode = temp;
         return EXACT_NOT_FOUND;
     }
-    
-    
-    
 }
 
 
-asdfs_errno find_inode(char *path,search_result *res){
-    
+asdfs_errno find_inode(const char *path, search_result *res){
     res->parent = NULL;
     res->left_inode = NULL;
     res->exact_inode = NULL;
@@ -137,16 +127,12 @@ asdfs_errno find_inode(char *path,search_result *res){
         else if (next_name) {
             return PATH_NOT_FOUND;
         }
-
         current_name = next_name;
     }
-    
     return return_code;
-    
 }
 
-inode *create_inode(char *path, struct stat attr) {
-    
+inode *create_inode(const char *path, struct stat attr) {
     char *current_filename = strtok(path, "/");
     
     while (current_filename!=NULL) {
@@ -228,7 +214,6 @@ void remove_inode(search_result *res) {
         parent->firstChild = NULL;
         parent->lastChild = NULL;
     }
-
     
     free(exact);
 }
