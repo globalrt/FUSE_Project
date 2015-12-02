@@ -40,7 +40,7 @@ typedef enum {
     
     EXACT_FOUND,
     EXACT_NOT_FOUND,
-    PATH_NOT_FOUND,
+    HEAD_NOT_FOUND,
     
     GENERAL_ERROR
 } asdfs_errno;
@@ -125,7 +125,7 @@ asdfs_errno find_inode(const char *path, search_result *res){
             parent = res->exact_inode;
         }
         else if (next_name) {
-            return PATH_NOT_FOUND;
+            return HEAD_NOT_FOUND;
         }
         current_name = next_name;
     }
