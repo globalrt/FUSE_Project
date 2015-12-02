@@ -274,11 +274,192 @@ void *asdfs_init (struct fuse_conn_info *conn) {
     return NULL;
 }
 
+#warning The code block below is only for debugging. Remove it before the submision!
+
+// OS X 환경에서만 컴파일 되는 코드 블럭
+#ifdef __APPLE__
+
+#include <assert.h>
+
+#define ASDFS_ERRNO_STRING(n) (n==NO_ERROR?"NO_ERROR": \
+                                (n==EXACT_FOUND?"EXACT_FOUND": \
+                                (n==EXACT_NOT_FOUND?"EXACT_NOT_FOUND": \
+                                (n==HEAD_NOT_DIRECTORY?"HEAD_NOT_DIRECTORY": \
+                                (n==HEAD_NOT_FOUND?"HEAD_NOT_FOUND": \
+                                ("GENERAL_ERROR"))))))
+
+int main(int argc, char *argv[]) {
+    asdfs_init(NULL);
+    
+    struct stat dir_attr;
+    dir_attr.st_uid = 1000;
+    dir_attr.st_gid = 1000;
+    dir_attr.st_mode = S_IFDIR | 0600;
+    
+    struct stat file_attr;
+    file_attr.st_uid = 1000;
+    file_attr.st_gid = 1000;
+    file_attr.st_mode = S_IFREG | 0777;
+    
+    char p_a[] = "/a";          // DIRECTORY
+    char p_c[] = "/c";          // DIRECTORY
+    char p_b[] = "/b";          // FILE
+    char p_a_b[] = "/a/b";      // FILE
+    char p_a_b_c[] = "/a/b/c";  // ERROR: /a/b is NOT DIRECTORY
+    
+    search_result res;
+    asdfs_errno code;
+    
+    // $ mkdir /a
+    fprintf(stderr, "-- $ mkdir %s\n", p_a);
+    
+    code = find_inode(p_a, &res);
+    fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
+    assert(code == EXACT_NOT_FOUND);
+    assert(res.parent == &root);
+    assert(res.left_inode == NULL);
+    assert(res.right_inode == NULL);
+    
+    inode *i_a = create_inode(p_a, dir_attr);
+    assert(i_a != NULL);
+    assert(i_a->attr.st_mode == dir_attr.st_mode);
+
+    insert_inode(res, i_a);
+    fprintf(stderr, "insert_inode\n");
+    assert(i_a->parent == &root);
+    assert(i_a->leftSibling == NULL);
+    assert(i_a->rightSibling == NULL);
+    
+    fprintf(stderr, "\n");
+    
+    // $ mkdir /c
+    fprintf(stderr, "-- $ mkdir %s\n", p_c);
+    
+    code = find_inode(p_c, &res);
+    fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
+    assert(code == EXACT_NOT_FOUND);
+    assert(res.parent == &root);
+    assert(res.left_inode == i_a);
+    assert(res.right_inode == NULL);
+    
+    inode *i_c = create_inode(p_c, dir_attr);
+    assert(i_c != NULL);
+    assert(i_c->attr.st_mode == dir_attr.st_mode);
+    
+    insert_inode(res, i_c);
+    fprintf(stderr, "insert_inode\n");
+    assert(i_c->parent == &root);
+    assert(i_c->leftSibling == i_a);
+    assert(i_c->rightSibling == NULL);
+    
+    fprintf(stderr, "\n");
+    
+    
+    // $ mkdir /b
+    fprintf(stderr, "-- $ touch %s\n", p_b);
+    
+    code = find_inode(p_b, &res);
+    fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
+    assert(code == EXACT_NOT_FOUND);
+    assert(res.parent == &root);
+    assert(res.left_inode == i_a);
+    assert(res.right_inode == i_c);
+    
+    inode *i_b = create_inode(p_b, file_attr);
+    assert(i_b != NULL);
+    assert(i_b->attr.st_mode == file_attr.st_mode);
+    
+    insert_inode(res, i_b);
+    fprintf(stderr, "insert_inode\n");
+    assert(i_a->parent == &root);
+    assert(i_a->leftSibling == NULL);
+    assert(i_a->rightSibling == i_b);
+    assert(i_b->parent == &root);
+    assert(i_b->leftSibling == i_a);
+    assert(i_b->rightSibling == i_c);
+    
+    fprintf(stderr, "\n");
+
+    
+    // $ touch /a/b
+    fprintf(stderr, "-- $ touch %s\n", p_a_b);
+    
+    code = find_inode(p_a_b, &res);
+    fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
+    assert(code == EXACT_NOT_FOUND);
+    assert(res.parent == i_a);
+    assert(res.left_inode == NULL);
+    assert(res.right_inode == NULL);
+    
+    inode *i_a_b = create_inode(p_a_b, file_attr);
+    assert(i_a_b != NULL);
+    assert(i_a_b->attr.st_mode == file_attr.st_mode);
+    
+    insert_inode(res, i_a_b);
+    fprintf(stderr, "insert_inode\n");
+    assert(i_a_b->parent == i_a);
+    assert(i_a_b->leftSibling == NULL);
+    assert(i_a_b->rightSibling == NULL);
+    
+    fprintf(stderr, "\n");
+
+
+    // $ ls /a/b
+    fprintf(stderr, "-- $ ls %s\n", p_a_b);
+    
+    code = find_inode(p_a_b, &res);
+    fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
+    assert(code == EXACT_FOUND);
+    
+    fprintf(stderr, "\n");
+
+    
+    // $ touch /a/b/c
+    fprintf(stderr, "-- $ touch %s\n", p_a_b_c);
+    
+    code = find_inode(p_a_b_c, &res);
+    fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
+    assert(code == HEAD_NOT_DIRECTORY);
+    
+    fprintf(stderr, "\n");
+
+    
+    // $ rmdir a
+    fprintf(stderr, "-- $ rmdir %s\n", p_a);
+    
+    code = find_inode(p_a, &res);
+    fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
+    assert(code == EXACT_FOUND);
+    
+    remove_inode(res);
+    fprintf(stderr, "remove_inode\n");
+    assert(root.firstChild == i_b);
+    assert(root.lastChild == i_c);
+    
+    fprintf(stderr, "\n");
+
+    
+    // $ touch /a/b
+    fprintf(stderr, "-- $ touch %s\n", p_a_b);
+    
+    code = find_inode(p_a_b, &res);
+    fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
+    assert(code == HEAD_NOT_FOUND);
+    
+    fprintf(stderr, "\n");
+    
+    return 0;
+}
+
+// 그 외 환경 (Linux) 에서 컴파일 되는 코드 블럭
+#else
+
 static struct fuse_operations asdfs_oper = {
     .init   = asdfs_init
 };
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     return fuse_main(argc, argv, &asdfs_oper, NULL);
 }
+
+#endif
