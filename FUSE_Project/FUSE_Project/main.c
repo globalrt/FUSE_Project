@@ -236,13 +236,10 @@ void remove_inode(search_result *res) {
 // 파일 시스템 초기화
 void *asdfs_init (struct fuse_conn_info *conn) {
     time_t current_time = time(NULL);
-    struct fuse_context *context = fuse_get_context();
     
     // root inode 초기화
     root.attr.st_mode  = S_IFDIR;      // 파일 모드
     root.attr.st_nlink = 1;            // 파일 링크 개수
-    root.attr.st_uid   = context->uid; // 파일 사용자 ID
-    root.attr.st_gid   = context->gid; // 파일 그룹 ID
     root.attr.st_atime = current_time; // 파일 최근 사용 시간
     root.attr.st_mtime = current_time; // 파일 최근 수정 시간
     root.attr.st_ctime = current_time; // 파일 최근 상태 변화 시간
