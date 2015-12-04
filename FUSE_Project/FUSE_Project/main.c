@@ -321,6 +321,74 @@ int asdfs_getattr (const char *path, struct stat *buf) {
     }
 }
 
+// 디렉터리 생성
+int asdfs_mkdir (const char *path, mode_t mode) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+
+    struct fuse_context *context = fuse_get_context();
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+
+    struct stat attr;
+    memset(&attr, 0, sizeof(struct stat));
+    attr.st_mode = S_IFDIR | mode;
+    attr.st_nlink = 1;
+    attr.st_uid = context->uid;
+    attr.st_gid = context->gid;
+    attr.st_atime = now.tv_sec; // 파일 최근 사용 시간
+    attr.st_mtime = now.tv_sec; // 파일 최근 수정 시간
+    attr.st_ctime = now.tv_sec; // 파일 최근 상태 변화 시간
+
+    inode *node = NULL;
+    
+    switch (code) {
+        case EXACT_FOUND:
+            return -EEXIST;
+            
+        case EXACT_NOT_FOUND:
+            node = create_inode(path, attr);
+            insert_inode(res.parent, res.left, res.right, node);
+            return 0;
+            
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+            
+        case HEAD_NOT_DIRECTORY:
+            return -ENOTDIR;
+            
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+}
+
+// 디렉터리 삭제
+int asdfs_rmdir (const char *path) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+
+    switch (code) {
+        case EXACT_FOUND:
+            if (res.exact->firstChild) {
+                return -ENOTEMPTY;
+            }
+
+            destroy_inode(res.exact);
+            return 0;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+            
+        case HEAD_NOT_DIRECTORY:
+            return -ENOTDIR;
+            
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+}
 // 디렉터리 열기
 int asdfs_opendir (const char *path, struct fuse_file_info *fi) {
     search_result res;
@@ -360,6 +428,129 @@ int asdfs_readdir (const char *path, void *buf, fuse_fill_dir_t filer, off_t off
     }
     
     return 0;
+}
+
+// 파일 생성
+int asdfs_mknod (const char *path, mode_t mode, dev_t rdev) {
+    if (!(mode & S_IFREG)) {
+        return -ENOSYS;
+    }
+    
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+
+    struct fuse_context *context = fuse_get_context();
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+
+    struct stat attr;
+    memset(&attr, 0, sizeof(struct stat));
+    attr.st_mode = mode;
+    attr.st_nlink = 1;
+    attr.st_uid = context->uid;
+    attr.st_gid = context->gid;
+    attr.st_rdev = rdev;
+    attr.st_atime = now.tv_sec; // 파일 최근 사용 시간
+    attr.st_mtime = now.tv_sec; // 파일 최근 수정 시간
+    attr.st_ctime = now.tv_sec; // 파일 최근 상태 변화 시간
+
+    inode *node = NULL;
+    
+    switch (code) {
+        case EXACT_FOUND:
+            return -EEXIST;
+            
+        case EXACT_NOT_FOUND:
+            node = create_inode(path, attr);
+            insert_inode(res.parent, res.left, res.right, node);
+            return 0;
+            
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+            
+        case HEAD_NOT_DIRECTORY:
+            return -ENOTDIR;
+            
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+}
+
+// 파일 삭제
+int asdfs_unlink (const char *path) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+
+    switch (code) {
+        case EXACT_FOUND:
+            destroy_inode(res.exact);
+            return 0;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+            
+        case HEAD_NOT_DIRECTORY:
+            return -ENOTDIR;
+            
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+}
+
+// 파일 열기
+int asdfs_open (const char *path, struct fuse_file_info *fi) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+    inode *exact = res.exact;
+    
+    switch (code) {
+        case EXACT_FOUND:
+            if (exact->attr.st_mode & S_IFDIR) {
+                return -EISDIR;
+            }
+            
+            fi->fh = (uint64_t)exact;
+            return 0;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+            
+        case HEAD_NOT_DIRECTORY:
+            return -ENOTDIR;
+            
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+}
+
+// 생성 및 수정 시간 변경
+int asdfs_utimens (const char *path, const struct timespec tv[2]) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+    inode *exact = res.exact;
+
+    switch (code) {
+        case EXACT_FOUND:
+            exact->attr.st_atime = tv[0].tv_sec;
+            exact->attr.st_mtime = tv[1].tv_sec;
+            return 0;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+            
+        case HEAD_NOT_DIRECTORY:
+            return -ENOTDIR;
+            
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
 }
 
 #warning The code block below is only for debugging. Remove it before the submision!
@@ -548,8 +739,17 @@ static struct fuse_operations asdfs_oper = {
     .init    = asdfs_init,
     .statfs  = asdfs_statfs,
     .getattr = asdfs_getattr,
+
+    .mkdir   = asdfs_mkdir,
+    .rmdir   = asdfs_rmdir,
     .opendir = asdfs_opendir,
     .readdir = asdfs_readdir,
+
+    .mknod   = asdfs_mknod,
+    .unlink  = asdfs_unlink,
+    .open    = asdfs_open,
+
+    .utimens = asdfs_utimens,
 };
 
 int main(int argc, char *argv[]) {
