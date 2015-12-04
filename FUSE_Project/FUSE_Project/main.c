@@ -263,6 +263,7 @@ void *asdfs_init (struct fuse_conn_info *conn) {
     time_t current_time = time(NULL);
     
     // root inode 초기화
+    strncpy(root.name, "ROOT", MAX_FILENAME);
     root.attr.st_mode  = S_IFDIR;      // 파일 모드
     root.attr.st_nlink = 1;            // 파일 링크 개수
     root.attr.st_atime = current_time; // 파일 최근 사용 시간
