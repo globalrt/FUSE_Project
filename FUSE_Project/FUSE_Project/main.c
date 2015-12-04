@@ -294,6 +294,12 @@ void *asdfs_init (struct fuse_conn_info *conn) {
     return NULL;
 }
 
+// 파일 시스템 정보 조회
+int asdfs_statfs (const char *path, struct statvfs *buf) {
+    *buf = superblock;
+    return 0;
+}
+
 #warning The code block below is only for debugging. Remove it before the submision!
 
 // OS X 환경에서만 컴파일 되는 코드 블럭
@@ -477,7 +483,8 @@ int main(int argc, char *argv[]) {
 #else
 
 static struct fuse_operations asdfs_oper = {
-    .init   = asdfs_init
+    .init    = asdfs_init,
+    .statfs  = asdfs_statfs,
 };
 
 int main(int argc, char *argv[]) {
