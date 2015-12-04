@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#define max(a,b) ((a)>(b)?(a):(b))
+
 typedef struct inode inode;
 struct inode {
     struct stat attr;
@@ -166,13 +168,33 @@ inode *create_inode(const char *path, struct stat attr) {
         curr_comp = next_comp;
     }
 
-    inode *new = (inode*)malloc(sizeof(inode));
-    memset(new, 0, sizeof(inode));
+    inode *new = (inode*)calloc(1, sizeof(inode));
     new->attr = attr;
     
     strncpy(new->name, curr_comp, MAX_FILENAME + 1);
     free(tok_path);
     return new;
+}
+
+void alloc_data_inode(inode *node, off_t size) {
+    unsigned long block_size = superblock.f_bsize;
+
+    off_t curr_size = node->attr.st_size;
+    blkcnt_t curr_blocks = node->attr.st_blocks;
+
+    off_t new_size = size;
+    blkcnt_t new_blocks = (new_size / block_size) + !!(new_size % block_size);
+
+    void *data = node->data;
+    if (data == NULL) {
+        data = calloc(1, new_blocks * block_size);
+    } else if (curr_blocks != new_blocks) {
+        data = realloc(data, new_blocks * block_size);
+    }
+    node->data = data;
+
+    node->attr.st_size = new_size;
+    node->attr.st_blocks = new_blocks;
 }
 
 void insert_inode(inode *parent, inode *left, inode *right, inode *new) {
@@ -423,10 +445,14 @@ int asdfs_opendir (const char *path, struct fuse_file_info *fi) {
 
 // 디렉터리 읽기
 int asdfs_readdir (const char *path, void *buf, fuse_fill_dir_t filer, off_t off, struct fuse_file_info *fi) {
+    inode *node = (inode *)fi->fh;
+    if (node == NULL) {
+        return -EIO;
+    }
+
     filer(buf, ".", NULL, 0);
     filer(buf, "..", NULL, 0);
     
-    inode *node = (inode *)fi->fh;
     inode *child = node->firstChild;
     while (child) {
         filer(buf, child->name, NULL, 0);
@@ -557,6 +583,63 @@ int asdfs_utimens (const char *path, const struct timespec tv[2]) {
         default:
             return -EIO;
     }
+}
+
+int asdfs_read (const char *path, char *mem, size_t size, off_t off, struct fuse_file_info *fi) {
+    inode *node = (inode *)fi->fh;
+    if (node == NULL) {
+        return -EIO;
+    }
+
+    void *data = node->data;
+    if (data == NULL) {
+        return -EIO;
+    }
+
+    char *ptr = (char *)data + off;
+    for (size_t i=0; i<size; i++) {
+        mem[i] = ptr[i];
+    }
+
+    return size;
+}
+
+int asdfs_truncate (const char *path, off_t size) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+
+    switch (code) {
+        case EXACT_FOUND:
+            alloc_data_inode(res.exact, size);
+            return 0;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+            
+        case HEAD_NOT_DIRECTORY:
+            return -ENOTDIR;
+            
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+}
+
+int asdfs_write (const char *path, const char *mem, size_t size, off_t off, struct fuse_file_info *fi) {
+    inode *node = (inode *)fi->fh;
+    if (node == NULL) {
+        return -EIO;
+    }
+    
+    alloc_data_inode(node, max(node->attr.st_size, off + size));
+
+    char *ptr = (char *)(node->data) + off;
+    for (size_t i=0; i<size; i++) {
+        ptr[i] = mem[i];
+    }
+
+    return size;
 }
 
 #warning The code block below is only for debugging. Remove it before the submision!
@@ -742,20 +825,23 @@ int main(int argc, char *argv[]) {
 #else
 
 static struct fuse_operations asdfs_oper = {
-    .init    = asdfs_init,
-    .statfs  = asdfs_statfs,
-    .getattr = asdfs_getattr,
+    .init     = asdfs_init,
+    .statfs   = asdfs_statfs,
+    .getattr  = asdfs_getattr,
 
-    .mkdir   = asdfs_mkdir,
-    .rmdir   = asdfs_rmdir,
-    .opendir = asdfs_opendir,
-    .readdir = asdfs_readdir,
+    .mkdir    = asdfs_mkdir,
+    .rmdir    = asdfs_rmdir,
+    .opendir  = asdfs_opendir,
+    .readdir  = asdfs_readdir,
 
-    .mknod   = asdfs_mknod,
-    .unlink  = asdfs_unlink,
-    .open    = asdfs_open,
+    .mknod    = asdfs_mknod,
+    .unlink   = asdfs_unlink,
+    .open     = asdfs_open,
+    .read     = asdfs_read,
+    .truncate = asdfs_truncate,
+    .write    = asdfs_write,
 
-    .utimens = asdfs_utimens,
+    .utimens  = asdfs_utimens,
 };
 
 int main(int argc, char *argv[]) {
