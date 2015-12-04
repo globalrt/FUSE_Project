@@ -117,11 +117,11 @@ asdfs_errno find_inode(const char *path, search_result *res){
     asdfs_errno return_code = NO_ERROR;
     
     unsigned long length = strlen(path);
-    char *tok_path = (char *)malloc(strlen(path));
+    char *tok_path = (char *)malloc(strlen(path) + 1);
     if (tok_path == NULL) {
         return GENERAL_ERROR;
     }
-    strncpy(tok_path, path, length);
+    strncpy(tok_path, path, length + 1);
     
     char * curr_comp = strtok(tok_path, "/");
     
@@ -150,11 +150,11 @@ asdfs_errno find_inode(const char *path, search_result *res){
 
 inode *create_inode(const char *path, struct stat attr) {
     unsigned long length = strlen(path);
-    char *tok_path = (char *)malloc(strlen(path));
+    char *tok_path = (char *)malloc(strlen(path) + 1);
     if (tok_path == NULL) {
         return NULL;
     }
-    strncpy(tok_path, path, length);
+    strncpy(tok_path, path, length + 1);
     
     char *curr_comp = strtok(tok_path, "/");
     
@@ -170,7 +170,7 @@ inode *create_inode(const char *path, struct stat attr) {
     memset(new, 0, sizeof(inode));
     new->attr = attr;
     
-    strncpy(new->name, curr_comp, MAX_FILENAME);
+    strncpy(new->name, curr_comp, MAX_FILENAME + 1);
     free(tok_path);
     return new;
 }
