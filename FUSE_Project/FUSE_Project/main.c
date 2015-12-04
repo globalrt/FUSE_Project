@@ -40,8 +40,8 @@ typedef enum {
     
     EXACT_FOUND,
     EXACT_NOT_FOUND,
-    HEAD_NOT_DIRECTORY,
     HEAD_NOT_FOUND,
+    HEAD_NOT_DIRECTORY,
     
     GENERAL_ERROR
 } asdfs_errno;
@@ -300,6 +300,27 @@ int asdfs_statfs (const char *path, struct statvfs *buf) {
     return 0;
 }
 
+// 파일 정보 조회
+int asdfs_getattr (const char *path, struct stat *buf) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+    
+    switch (code) {
+        case EXACT_FOUND:
+            *buf = res.exact->attr;
+            return 0;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+            
+        case HEAD_NOT_DIRECTORY:
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+}
+
 #warning The code block below is only for debugging. Remove it before the submision!
 
 // OS X 환경에서만 컴파일 되는 코드 블럭
@@ -485,6 +506,7 @@ int main(int argc, char *argv[]) {
 static struct fuse_operations asdfs_oper = {
     .init    = asdfs_init,
     .statfs  = asdfs_statfs,
+    .getattr = asdfs_getattr,
 };
 
 int main(int argc, char *argv[]) {
