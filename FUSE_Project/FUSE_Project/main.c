@@ -208,11 +208,14 @@ void insert_inode(inode *parent, inode *left, inode *right, inode *new) {
     }
 }
 
-void remove_inode(search_result res) {
-    inode *parent = res.parent;
-    inode *left = res.left_inode;
-    inode *exact = res.exact_inode;
-    inode *right = res.right_inode;
+void extract_inode(inode *node) {
+    if (node == NULL) {
+        return;
+    }
+    
+    inode *parent = node->parent;
+    inode *left = node->leftSibling;
+    inode *right = node->rightSibling;
     
     if (left != NULL && right != NULL){
         left->rightSibling = right;
@@ -231,12 +234,25 @@ void remove_inode(search_result res) {
         parent->lastChild = left;
     }
     
-    if (left == NULL && right ==NULL){
+    if (parent != NULL && left == NULL && right == NULL){
         parent->firstChild = NULL;
         parent->lastChild = NULL;
     }
     
-    free(exact);
+    node->parent = NULL;
+}
+
+void destroy_inode(inode *node) {
+    if (node == NULL || node == &root) {
+        return;
+    }
+
+    while (node->firstChild) {
+        destroy_inode(node->firstChild);
+    }
+    
+    extract_inode(node);
+    free(node);
 }
 
 // 파일 시스템 초기화
@@ -431,7 +447,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
     assert(code == EXACT_FOUND);
     
-    remove_inode(res);
+    destroy_inode(res.exact_inode);
     fprintf(stderr, "remove_inode\n");
     assert(root.firstChild == i_b);
     assert(root.lastChild == i_c);
@@ -447,6 +463,8 @@ int main(int argc, char *argv[]) {
     assert(code == HEAD_NOT_FOUND);
     
     fprintf(stderr, "\n");
+    
+    destroy_inode(&root);
     
     return 0;
 }
