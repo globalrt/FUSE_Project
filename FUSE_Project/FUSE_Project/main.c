@@ -44,6 +44,7 @@ typedef enum {
     EXACT_NOT_FOUND,
     HEAD_NOT_FOUND,
     HEAD_NOT_DIRECTORY,
+    NO_PERMISSION,
     
     GENERAL_ERROR
 } asdfs_errno;
@@ -248,6 +249,11 @@ asdfs_errno find_inode(const char *path, search_result *res){
     while (curr_comp!=NULL) {
         if (!(parent->attr.st_mode & S_IFDIR)) {
             return HEAD_NOT_DIRECTORY;
+        }
+
+        // 상위 폴더에 EXECUTE 권한이 없을 경우 탐색 불가
+        if (!can_execute(parent)) {
+            return NO_PERMISSION;
         }
         
         char * next_comp = strtok(NULL, "/");
