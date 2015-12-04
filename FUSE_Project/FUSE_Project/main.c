@@ -347,6 +347,21 @@ int asdfs_opendir (const char *path, struct fuse_file_info *fi) {
     }
 }
 
+// 디렉터리 읽기
+int asdfs_readdir (const char *path, void *buf, fuse_fill_dir_t filer, off_t off, struct fuse_file_info *fi) {
+    filer(buf, ".", NULL, 0);
+    filer(buf, "..", NULL, 0);
+    
+    inode *node = (inode *)fi->fh;
+    inode *child = node->firstChild;
+    while (child) {
+        filer(buf, child->name, NULL, 0);
+        child = child->rightSibling;
+    }
+    
+    return 0;
+}
+
 #warning The code block below is only for debugging. Remove it before the submision!
 
 // OS X 환경에서만 컴파일 되는 코드 블럭
@@ -534,6 +549,7 @@ static struct fuse_operations asdfs_oper = {
     .statfs  = asdfs_statfs,
     .getattr = asdfs_getattr,
     .opendir = asdfs_opendir,
+    .readdir = asdfs_readdir,
 };
 
 int main(int argc, char *argv[]) {
