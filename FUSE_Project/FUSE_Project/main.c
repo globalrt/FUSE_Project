@@ -243,7 +243,7 @@ void extract_inode(inode *node) {
 }
 
 void destroy_inode(inode *node) {
-    if (node == NULL || node == &root) {
+    if (node == NULL) {
         return;
     }
 
@@ -252,7 +252,10 @@ void destroy_inode(inode *node) {
     }
     
     extract_inode(node);
-    free(node);
+    
+    if (node != &root) {
+        free(node);
+    }
 }
 
 // 파일 시스템 초기화
