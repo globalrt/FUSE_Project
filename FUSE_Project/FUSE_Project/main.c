@@ -173,10 +173,10 @@ inode *create_inode(const char *path, struct stat attr) {
     return new;
 }
 
-void insert_inode(search_result res, inode *new) {
-    inode *parent = res.parent;
-    inode *left = res.left_inode;
-    inode *right = res.right_inode;
+void insert_inode(inode *parent, inode *left, inode *right, inode *new) {
+    if (parent == NULL) {
+        return;
+    }
     
     new->parent = parent;
     
@@ -324,7 +324,7 @@ int main(int argc, char *argv[]) {
     assert(i_a != NULL);
     assert(i_a->attr.st_mode == dir_attr.st_mode);
 
-    insert_inode(res, i_a);
+    insert_inode(res.parent, res.left_inode, res.right_inode, i_a);
     fprintf(stderr, "insert_inode\n");
     assert(i_a->parent == &root);
     assert(i_a->leftSibling == NULL);
@@ -346,7 +346,7 @@ int main(int argc, char *argv[]) {
     assert(i_c != NULL);
     assert(i_c->attr.st_mode == dir_attr.st_mode);
     
-    insert_inode(res, i_c);
+    insert_inode(res.parent, res.left_inode, res.right_inode, i_c);
     fprintf(stderr, "insert_inode\n");
     assert(i_c->parent == &root);
     assert(i_c->leftSibling == i_a);
@@ -369,7 +369,7 @@ int main(int argc, char *argv[]) {
     assert(i_b != NULL);
     assert(i_b->attr.st_mode == file_attr.st_mode);
     
-    insert_inode(res, i_b);
+    insert_inode(res.parent, res.left_inode, res.right_inode, i_b);
     fprintf(stderr, "insert_inode\n");
     assert(i_a->parent == &root);
     assert(i_a->leftSibling == NULL);
@@ -395,7 +395,7 @@ int main(int argc, char *argv[]) {
     assert(i_a_b != NULL);
     assert(i_a_b->attr.st_mode == file_attr.st_mode);
     
-    insert_inode(res, i_a_b);
+    insert_inode(res.parent, res.left_inode, res.right_inode, i_a_b);
     fprintf(stderr, "insert_inode\n");
     assert(i_a_b->parent == i_a);
     assert(i_a_b->leftSibling == NULL);
