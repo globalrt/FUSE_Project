@@ -51,6 +51,124 @@ typedef enum {
 static struct statvfs superblock;
 static inode root;
 
+int can_chmod(inode *node) {
+    struct fuse_context *context = fuse_get_context();
+    return context->uid == node->attr.st_uid;
+}
+
+int can_chown(inode *node) {
+    struct fuse_context *context = fuse_get_context();
+    return context->uid == 0;
+}
+
+int can_read(inode *node) {
+    struct fuse_context *context = fuse_get_context();
+    uid_t curr_uid = context->uid;
+
+    mode_t file_mode = node->attr.st_mode;
+    uid_t file_uid = node->attr.st_uid;
+    uid_t file_gid = node->attr.st_gid;
+
+    // owner이고, 파일에 owner READ 권한이 있는 경우
+    if (((curr_uid == file_uid) && (file_mode & S_IRUSR))
+        // owner는 아니지만 group에 속하고, 파일에 group READ 권한이 있는 경우
+        || ((curr_gid == file_gid) && (file_mode & S_IRGRP)) ) {
+        return 1;
+    }
+
+    // supplementary groups 확인
+    gid_t list[512];
+    int length = fuse_getgroups(512, list);
+    for (int i=0; i<length && i<512; i++) {
+        uid_t supp_gid = list[i];
+
+        // owner는 아니지만 supplementary group에 속하고,
+        // 파일에 group READ 권한이 있는 경우
+        if ((supp_gid == file_gid) && (file_mode & S_IRGRP)) {
+            return 1;
+        }
+    }
+
+    // others이고, 파일에 others READ 권한이 있는 경우
+    if (file_mode & S_IROTH) {
+        return 1;
+    }
+
+    return 0;
+}
+
+int can_write(inode *node) {
+    struct fuse_context *context = fuse_get_context();
+    uid_t curr_uid = context->uid;
+
+    mode_t file_mode = node->attr.st_mode;
+    uid_t file_uid = node->attr.st_uid;
+    uid_t file_gid = node->attr.st_gid;
+
+    // owner이고, 파일에 owner WRITE 권한이 있는 경우
+    if (((curr_uid == file_uid) && (file_mode & S_IWUSR))
+        // owner는 아니지만 group에 속하고, 파일에 group WRITE 권한이 있는 경우
+        || ((curr_gid == file_gid) && (file_mode & S_IWGRP)) ) {
+        return 1;
+    }
+
+    // supplementary groups 확인
+    gid_t list[512];
+    int length = fuse_getgroups(512, list);
+    for (int i=0; i<length && i<512; i++) {
+        uid_t supp_gid = list[i];
+
+        // owner는 아니지만 supplementary group에 속하고,
+        // 파일에 group WRITE 권한이 있는 경우
+        if ((supp_gid == file_gid) && (file_mode & S_IWGRP)) {
+            return 1;
+        }
+    }
+
+    // others이고, 파일에 others WRITE 권한이 있는 경우
+    if (file_mode & S_IWOTH) {
+        return 1;
+    }
+
+    return 0;
+}
+
+int can_execute(inode *node) {
+    struct fuse_context *context = fuse_get_context();
+    uid_t curr_uid = context->uid;
+
+    mode_t file_mode = node->attr.st_mode;
+    uid_t file_uid = node->attr.st_uid;
+    uid_t file_gid = node->attr.st_gid;
+
+    // owner이고, 파일에 owner EXECUTE 권한이 있는 경우
+    if (((curr_uid == file_uid) && (file_mode & S_IXUSR))
+        // owner는 아니지만 group에 속하고, 파일에 group EXECUTE 권한이 있는 경우
+        || ((curr_gid == file_gid) && (file_mode & S_IXGRP)) ) {
+        return 1;
+    }
+
+    // supplementary groups 확인
+    gid_t list[512];
+    int length = fuse_getgroups(512, list);
+    for (int i=0; i<length && i<512; i++) {
+        uid_t supp_gid = list[i];
+
+        // owner는 아니지만 supplementary group에 속하고,
+        // 파일에 group EXECUTE 권한이 있는 경우
+        if ((supp_gid == file_gid) && (file_mode & S_IXGRP)) {
+            return 1;
+        }
+    }
+
+    // others이고, 파일에 others EXECUTE 권한이 있는 경우
+    if (file_mode & S_IXOTH) {
+        return 1;
+    }
+
+    return 0;
+}
+
 asdfs_errno child_search(inode *parent, const char *search_name, search_result *res){
     if (parent == NULL || search_name == NULL || res == NULL) {
         return GENERAL_ERROR;
