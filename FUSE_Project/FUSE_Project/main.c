@@ -64,36 +64,38 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
         return EXACT_NOT_FOUND; // no child.
     }
     
-    inode *temp = parent->firstChild;
-    
-    if (strcmp(search_name,parent->firstChild->name)<0) {
+    inode *firstChild = parent->firstChild;
+
+    if (strcmp(search_name,firstChild->name)<0) {
         res->left = NULL;
         res->exact = NULL;
-        res->right = temp;
+        res->right = firstChild;
         return EXACT_NOT_FOUND;
     }
 
-    if (strcmp(search_name,parent->lastChild->name)>0) {
-        res->left = temp;
+    inode *lastChild = parent->lastChild;
+
+    if (strcmp(search_name,lastChild->name)>0) {
+        res->left = lastChild;
         res->exact = NULL;
         res->right = NULL;
         return EXACT_NOT_FOUND;
     }
     
-    while (strcmp(search_name,temp->name)>0) {
-        temp = temp->rightSibling;
+    while (strcmp(search_name,firstChild->name)>0) {
+        firstChild = firstChild->rightSibling;
     }
     
-    if (strcmp(search_name,temp->name)==0) {
-        res->left = temp->leftSibling;
-        res->exact = temp;
-        res->right = temp->rightSibling;
+    if (strcmp(search_name,firstChild->name)==0) {
+        res->left = firstChild->leftSibling;
+        res->exact = firstChild;
+        res->right = firstChild->rightSibling;
         return EXACT_FOUND;
     }
     else{
-        res->left = temp->leftSibling;
+        res->left = firstChild->leftSibling;
         res->exact = NULL;
-        res->right = temp;
+        res->right = firstChild;
         return EXACT_NOT_FOUND;
     }
 }
