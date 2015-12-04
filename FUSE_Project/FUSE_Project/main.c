@@ -321,6 +321,32 @@ int asdfs_getattr (const char *path, struct stat *buf) {
     }
 }
 
+// 디렉터리 열기
+int asdfs_opendir (const char *path, struct fuse_file_info *fi) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+    inode *exact = res.exact;
+    
+    switch (code) {
+        case EXACT_FOUND:
+            if (!(exact->attr.st_mode & S_IFDIR)) {
+                return -ENOTDIR;
+            }
+            
+            fi->fh = (uint64_t)exact;
+            return 0;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+            
+        case HEAD_NOT_DIRECTORY:
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+}
+
 #warning The code block below is only for debugging. Remove it before the submision!
 
 // OS X 환경에서만 컴파일 되는 코드 블럭
@@ -507,6 +533,7 @@ static struct fuse_operations asdfs_oper = {
     .init    = asdfs_init,
     .statfs  = asdfs_statfs,
     .getattr = asdfs_getattr,
+    .opendir = asdfs_opendir,
 };
 
 int main(int argc, char *argv[]) {
