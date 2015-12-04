@@ -30,9 +30,9 @@ typedef struct search_result search_result;
 struct search_result {
     inode *parent;
 
-    inode *left_inode;
-    inode *exact_inode;
-    inode *right_inode;
+    inode *left;
+    inode *exact;
+    inode *right;
 };
 
 typedef enum {
@@ -57,9 +57,9 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
     res->parent = parent;
     
     if(parent->firstChild==NULL){
-        res->left_inode=NULL;
-        res->exact_inode=NULL;
-        res->right_inode=NULL;
+        res->left=NULL;
+        res->exact=NULL;
+        res->right=NULL;
         
         return EXACT_NOT_FOUND; // no child.
     }
@@ -67,16 +67,16 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
     inode *temp = parent->firstChild;
     
     if (strcmp(search_name,parent->firstChild->name)<0) {
-        res->left_inode = NULL;
-        res->exact_inode = NULL;
-        res->right_inode = temp;
+        res->left = NULL;
+        res->exact = NULL;
+        res->right = temp;
         return EXACT_NOT_FOUND;
     }
 
     if (strcmp(search_name,parent->lastChild->name)>0) {
-        res->left_inode = temp;
-        res->exact_inode = NULL;
-        res->right_inode = NULL;
+        res->left = temp;
+        res->exact = NULL;
+        res->right = NULL;
         return EXACT_NOT_FOUND;
     }
     
@@ -85,15 +85,15 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
     }
     
     if (strcmp(search_name,temp->name)==0) {
-        res->left_inode = temp->leftSibling;
-        res->exact_inode = temp;
-        res->right_inode = temp->rightSibling;
+        res->left = temp->leftSibling;
+        res->exact = temp;
+        res->right = temp->rightSibling;
         return EXACT_FOUND;
     }
     else{
-        res->left_inode = temp->leftSibling;
-        res->exact_inode = NULL;
-        res->right_inode = temp;
+        res->left = temp->leftSibling;
+        res->exact = NULL;
+        res->right = temp;
         return EXACT_NOT_FOUND;
     }
 }
@@ -101,14 +101,14 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
 
 asdfs_errno find_inode(const char *path, search_result *res){
     res->parent = NULL;
-    res->left_inode = NULL;
-    res->exact_inode = NULL;
-    res->right_inode = NULL;
+    res->left = NULL;
+    res->exact = NULL;
+    res->right = NULL;
     
     inode *parent = &root;
     
     if (strcmp(path, "/")==0) {
-        res->exact_inode = &root;
+        res->exact = &root;
         return EXACT_FOUND;
     }
     
@@ -133,7 +133,7 @@ asdfs_errno find_inode(const char *path, search_result *res){
         return_code=child_search(parent, curr_comp, res);
 
         if (return_code==EXACT_FOUND) {
-            parent = res->exact_inode;
+            parent = res->exact;
         }
         else if (next_comp) {
             free(tok_path);
@@ -337,14 +337,14 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
     assert(code == EXACT_NOT_FOUND);
     assert(res.parent == &root);
-    assert(res.left_inode == NULL);
-    assert(res.right_inode == NULL);
+    assert(res.left == NULL);
+    assert(res.right == NULL);
     
     inode *i_a = create_inode(p_a, dir_attr);
     assert(i_a != NULL);
     assert(i_a->attr.st_mode == dir_attr.st_mode);
 
-    insert_inode(res.parent, res.left_inode, res.right_inode, i_a);
+    insert_inode(res.parent, res.left, res.right, i_a);
     fprintf(stderr, "insert_inode\n");
     assert(i_a->parent == &root);
     assert(i_a->leftSibling == NULL);
@@ -359,14 +359,14 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
     assert(code == EXACT_NOT_FOUND);
     assert(res.parent == &root);
-    assert(res.left_inode == i_a);
-    assert(res.right_inode == NULL);
+    assert(res.left == i_a);
+    assert(res.right == NULL);
     
     inode *i_c = create_inode(p_c, dir_attr);
     assert(i_c != NULL);
     assert(i_c->attr.st_mode == dir_attr.st_mode);
     
-    insert_inode(res.parent, res.left_inode, res.right_inode, i_c);
+    insert_inode(res.parent, res.left, res.right, i_c);
     fprintf(stderr, "insert_inode\n");
     assert(i_c->parent == &root);
     assert(i_c->leftSibling == i_a);
@@ -382,14 +382,14 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
     assert(code == EXACT_NOT_FOUND);
     assert(res.parent == &root);
-    assert(res.left_inode == i_a);
-    assert(res.right_inode == i_c);
+    assert(res.left == i_a);
+    assert(res.right == i_c);
     
     inode *i_b = create_inode(p_b, file_attr);
     assert(i_b != NULL);
     assert(i_b->attr.st_mode == file_attr.st_mode);
     
-    insert_inode(res.parent, res.left_inode, res.right_inode, i_b);
+    insert_inode(res.parent, res.left, res.right, i_b);
     fprintf(stderr, "insert_inode\n");
     assert(i_a->parent == &root);
     assert(i_a->leftSibling == NULL);
@@ -408,14 +408,14 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
     assert(code == EXACT_NOT_FOUND);
     assert(res.parent == i_a);
-    assert(res.left_inode == NULL);
-    assert(res.right_inode == NULL);
+    assert(res.left == NULL);
+    assert(res.right == NULL);
     
     inode *i_a_b = create_inode(p_a_b, file_attr);
     assert(i_a_b != NULL);
     assert(i_a_b->attr.st_mode == file_attr.st_mode);
     
-    insert_inode(res.parent, res.left_inode, res.right_inode, i_a_b);
+    insert_inode(res.parent, res.left, res.right, i_a_b);
     fprintf(stderr, "insert_inode\n");
     assert(i_a_b->parent == i_a);
     assert(i_a_b->leftSibling == NULL);
@@ -451,7 +451,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "find_inode %s\n", ASDFS_ERRNO_STRING(code));
     assert(code == EXACT_FOUND);
     
-    destroy_inode(res.exact_inode);
+    destroy_inode(res.exact);
     fprintf(stderr, "remove_inode\n");
     assert(root.firstChild == i_b);
     assert(root.lastChild == i_c);
