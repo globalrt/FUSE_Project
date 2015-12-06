@@ -6,7 +6,7 @@ RM=rm
 CFLAGS=-std=gnu99 -O3 -D_FILE_OFFSET_BITS=64 -lfuse
 
 EXE=asdfs
-SRCS=main.c
+SRCS=asdfs_internal.c asdfs.c main.c
 
 all: 
 	$(CC) $(SRCS) -o $(EXE) $(CFLAGS)
