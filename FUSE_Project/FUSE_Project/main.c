@@ -39,28 +39,24 @@ struct search_result {
 
 typedef enum {
     NO_ERROR = 0,
-    
     EXACT_FOUND,
     EXACT_NOT_FOUND,
     HEAD_NOT_FOUND,
     HEAD_NOT_DIRECTORY,
     HEAD_NO_PERMISSION,
-    
-    GENERAL_ERROR
+    GENERAL_ERROR = 0xFFFF,
+
+    IS_OWNER = 1 << 22,
+    CAN_READ_PARENT = 1 << 21,
+    CAN_WRITE_PARENT = 1 << 20,
+    CAN_EXECUTE_PARENT = 1 << 19,
+    CAN_READ_EXACT = 1 << 18,
+    CAN_WRITE_EXACT = 1 << 17,
+    CAN_EXECUTE_EXACT = 1 << 16
 } asdfs_errno;
 
 static struct statvfs superblock;
 static inode root;
-
-int can_chmod(inode *node) {
-    struct fuse_context *context = fuse_get_context();
-    return context->uid == node->attr.st_uid;
-}
-
-int can_chown(inode *node) {
-    struct fuse_context *context = fuse_get_context();
-    return context->uid == 0;
-}
 
 int can_read(inode *node) {
     struct fuse_context *context = fuse_get_context();
@@ -224,6 +220,44 @@ asdfs_errno child_search(inode *parent, const char *search_name, search_result *
     }
 }
 
+void init_inode() {
+    // 현재 시간 가져오기
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    
+    struct fuse_context *context = fuse_get_context();
+
+    // root inode 초기화
+    strncpy(root.name, "ROOT", MAX_FILENAME);
+    root.attr.st_mode  = S_IFDIR | (0777 & ~(context->umask)); // 파일 모드
+    root.attr.st_nlink = 1;              // 파일 링크 개수
+    root.attr.st_uid   = context->uid;   // 
+    root.attr.st_gid   = context->gid;   //
+    root.attr.st_atime = now.tv_sec;     // 파일 최근 사용 시간
+    root.attr.st_mtime = now.tv_sec;     // 파일 최근 수정 시간
+    root.attr.st_ctime = now.tv_sec;     // 파일 최근 상태 변화 시간
+    // 나머지 값은 static이므로 전부 0.
+    
+    // superblock 초기화
+    
+    // f_bsize: 파일 시스템 블록 크기
+    unsigned long f_bsize = BLOCK_SIZE_KB * 1024;
+    
+    // f_blocks: 파일 시스템 내 전체 블록 개수
+    fsblkcnt_t f_blocks = VOLUME_SIZE_MB * 1024 / BLOCK_SIZE_KB;
+    
+    // f_files: 전체 파일 시리얼 넘버 (inode) 개수
+    fsfilcnt_t f_files = (fsfilcnt_t)(f_blocks * (f_bsize / INODE_SIZE_BYTE));
+    
+    superblock.f_bsize   = f_bsize;      // 파일 시스템 블록 크기
+    superblock.f_blocks  = f_blocks;     // 파일 시스템 내 전체 블록 개수
+    superblock.f_bfree   = f_blocks - 1; // 사용 가능한 블록 수, root만큼 제외
+    superblock.f_bavail  = f_blocks - 1; // 일반 권한 프로세스가 사용 가능한 블록 수, root만큼 제외
+    superblock.f_files   = f_files;      // 전체 파일 시리얼 넘버 개수
+    superblock.f_favail  = f_files - 1;  // 사용 가능한 파일 시리얼 넘버 개수, root만큼 제외
+    superblock.f_namemax = MAX_FILENAME; // 최대 파일 이름 길이
+    // 나머지 값은 static이므로 전부 0.
+}
 
 asdfs_errno find_inode(const char *path, search_result *res){
     res->parent = NULL;
@@ -232,13 +266,16 @@ asdfs_errno find_inode(const char *path, search_result *res){
     res->right = NULL;
     
     inode *parent = &root;
-    
+    asdfs_errno return_code = NO_ERROR;
+
     if (strcmp(path, "/")==0) {
         res->exact = &root;
-        return EXACT_FOUND;
+        return_code = EXACT_FOUND;
+        return_code |= can_read(&root) ? CAN_READ_EXACT : 0;
+        return_code |= can_write(&root) ? CAN_WRITE_PARENT : 0;
+        return_code |= can_execute(&root) ? CAN_EXECUTE_EXACT : 0;
+        return return_code;
     }
-    
-    asdfs_errno return_code = NO_ERROR;
     
     unsigned long length = strlen(path);
     char *tok_path = (char *)malloc(strlen(path) + 1);
@@ -274,6 +311,23 @@ asdfs_errno find_inode(const char *path, search_result *res){
     }
 
     free(tok_path);
+
+    if (res->parent) {
+        return_code |= can_read(res->parent) ? CAN_READ_PARENT : 0;
+        return_code |= can_write(res->parent) ? CAN_WRITE_PARENT : 0;
+        return_code |= can_execute(res->parent) ? CAN_EXECUTE_PARENT : 0;
+    }
+
+    if (res->exact) {
+        return_code |= can_read(res->exact) ? CAN_READ_EXACT : 0;
+        return_code |= can_write(res->exact) ? CAN_WRITE_EXACT : 0;
+        return_code |= can_execute(res->exact) ? CAN_EXECUTE_EXACT : 0;
+
+        if (res->exact->attr.st_uid == fuse_get_context()->uid) {
+            return_code |= IS_OWNER;
+        }
+    }
+
     return return_code;
 }
 
@@ -295,9 +349,11 @@ inode *create_inode(const char *path, struct stat attr) {
         curr_comp = next_comp;
     }
 
+    attr.st_ino = ++(superblock.f_files);
+
     inode *new = (inode*)calloc(1, sizeof(inode));
     new->attr = attr;
-    
+
     strncpy(new->name, curr_comp, MAX_FILENAME + 1);
     free(tok_path);
     return new;
@@ -411,39 +467,7 @@ void destroy_inode(inode *node) {
 
 // 파일 시스템 초기화
 void *asdfs_init (struct fuse_conn_info *conn) {
-    // 현재 시간 가져오기
-    struct timespec now;
-    clock_gettime(CLOCK_REALTIME, &now);
-    
-    // root inode 초기화
-    strncpy(root.name, "ROOT", MAX_FILENAME);
-    root.attr.st_mode  = S_IFDIR;     // 파일 모드
-    root.attr.st_nlink = 1;           // 파일 링크 개수
-    root.attr.st_atime = now.tv_sec;  // 파일 최근 사용 시간
-    root.attr.st_mtime = now.tv_sec;  // 파일 최근 수정 시간
-    root.attr.st_ctime = now.tv_sec;  // 파일 최근 상태 변화 시간
-    // 나머지 값은 static이므로 전부 0.
-    
-    // superblock 초기화
-    
-    // f_bsize: 파일 시스템 블록 크기
-    unsigned long f_bsize = BLOCK_SIZE_KB * 1024;
-    
-    // f_blocks: 파일 시스템 내 전체 블록 개수
-    fsblkcnt_t f_blocks = VOLUME_SIZE_MB * 1024 / BLOCK_SIZE_KB;
-    
-    // f_files: 전체 파일 시리얼 넘버 (inode) 개수
-    fsfilcnt_t f_files = (fsfilcnt_t)(f_blocks * (f_bsize / INODE_SIZE_BYTE));
-    
-    superblock.f_bsize   = f_bsize;      // 파일 시스템 블록 크기
-    superblock.f_blocks  = f_blocks;     // 파일 시스템 내 전체 블록 개수
-    superblock.f_bfree   = f_blocks - 1; // 사용 가능한 블록 수, root만큼 제외
-    superblock.f_bavail  = f_blocks - 1; // 일반 권한 프로세스가 사용 가능한 블록 수, root만큼 제외
-    superblock.f_files   = f_files;      // 전체 파일 시리얼 넘버 개수
-    superblock.f_favail  = f_files - 1;  // 사용 가능한 파일 시리얼 넘버 개수, root만큼 제외
-    superblock.f_namemax = MAX_FILENAME; // 최대 파일 이름 길이
-    // 나머지 값은 static이므로 전부 0.
-    
+    init_inode();
     return NULL;
 }
 
@@ -458,20 +482,25 @@ int asdfs_getattr (const char *path, struct stat *buf) {
     search_result res;
     asdfs_errno code = find_inode(path, &res);
     
-    switch (code) {
+    switch (code & 0xFFFF) {
         case EXACT_FOUND:
-            *buf = res.exact->attr;
-            return 0;
+            break;
             
         case EXACT_NOT_FOUND:
         case HEAD_NOT_FOUND:
             return -ENOENT;
-            
+
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
         case HEAD_NOT_DIRECTORY:
         case GENERAL_ERROR:
         default:
             return -EIO;
     }
+
+    *buf = res.exact->attr;
+    return 0;
 }
 
 // 디렉터리 생성
@@ -495,14 +524,12 @@ int asdfs_mkdir (const char *path, mode_t mode) {
 
     inode *node = NULL;
     
-    switch (code) {
+    switch (code & 0xFFFF) {
         case EXACT_FOUND:
             return -EEXIST;
             
         case EXACT_NOT_FOUND:
-            node = create_inode(path, attr);
-            insert_inode(res.parent, res.left, res.right, node);
-            return 0;
+            break;
             
         case HEAD_NOT_FOUND:
             return -ENOENT;
@@ -510,10 +537,21 @@ int asdfs_mkdir (const char *path, mode_t mode) {
         case HEAD_NOT_DIRECTORY:
             return -ENOTDIR;
             
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
         case GENERAL_ERROR:
         default:
             return -EIO;
     }
+
+    if (!(code & CAN_WRITE_PARENT)) {
+        return -EACCES;
+    }
+
+    node = create_inode(path, attr);
+    insert_inode(res.parent, res.left, res.right, node);
+    return 0;
 }
 
 // 디렉터리 삭제
@@ -521,14 +559,9 @@ int asdfs_rmdir (const char *path) {
     search_result res;
     asdfs_errno code = find_inode(path, &res);
 
-    switch (code) {
+    switch (code & 0xFFFF) {
         case EXACT_FOUND:
-            if (res.exact->firstChild) {
-                return -ENOTEMPTY;
-            }
-
-            destroy_inode(res.exact);
-            return 0;
+            break;
             
         case EXACT_NOT_FOUND:
         case HEAD_NOT_FOUND:
@@ -537,25 +570,35 @@ int asdfs_rmdir (const char *path) {
         case HEAD_NOT_DIRECTORY:
             return -ENOTDIR;
             
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
         case GENERAL_ERROR:
         default:
             return -EIO;
     }
+
+    if (!(code & CAN_WRITE_PARENT)) {
+        return -EACCES;
+    }
+
+    if (res.exact->firstChild) {
+        return -ENOTEMPTY;
+    }
+
+    destroy_inode(res.exact);
+    return 0;
 }
+
 // 디렉터리 열기
 int asdfs_opendir (const char *path, struct fuse_file_info *fi) {
     search_result res;
     asdfs_errno code = find_inode(path, &res);
     inode *exact = res.exact;
     
-    switch (code) {
+    switch (code & 0xFFFF) {
         case EXACT_FOUND:
-            if (!(exact->attr.st_mode & S_IFDIR)) {
-                return -ENOTDIR;
-            }
-            
-            fi->fh = (uint64_t)exact;
-            return 0;
+            break;
             
         case EXACT_NOT_FOUND:
         case HEAD_NOT_FOUND:
@@ -564,10 +607,24 @@ int asdfs_opendir (const char *path, struct fuse_file_info *fi) {
         case HEAD_NOT_DIRECTORY:
             return -ENOTDIR;
             
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
         case GENERAL_ERROR:
         default:
             return -EIO;
     }
+
+    if (!(exact->attr.st_mode & S_IFDIR)) {
+        return -ENOTDIR;
+    }
+
+    if (!(code & CAN_READ_EXACT)) {
+        return -EACCES;
+    }
+    
+    fi->fh = (uint64_t)exact;
+    return 0;
 }
 
 // 디렉터리 읽기
@@ -598,9 +655,9 @@ int asdfs_mknod (const char *path, mode_t mode, dev_t rdev) {
     search_result res;
     asdfs_errno code = find_inode(path, &res);
 
-    struct fuse_context *context = fuse_get_context();
     struct timespec now;
     clock_gettime(CLOCK_REALTIME, &now);
+    struct fuse_context *context = fuse_get_context();
 
     struct stat attr;
     memset(&attr, 0, sizeof(struct stat));
@@ -615,14 +672,12 @@ int asdfs_mknod (const char *path, mode_t mode, dev_t rdev) {
 
     inode *node = NULL;
     
-    switch (code) {
+    switch (code & 0xFFFF) {
         case EXACT_FOUND:
             return -EEXIST;
             
         case EXACT_NOT_FOUND:
-            node = create_inode(path, attr);
-            insert_inode(res.parent, res.left, res.right, node);
-            return 0;
+            break;
             
         case HEAD_NOT_FOUND:
             return -ENOENT;
@@ -630,10 +685,21 @@ int asdfs_mknod (const char *path, mode_t mode, dev_t rdev) {
         case HEAD_NOT_DIRECTORY:
             return -ENOTDIR;
             
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
         case GENERAL_ERROR:
         default:
             return -EIO;
     }
+
+    if (!(code & CAN_WRITE_PARENT)) {
+        return -EACCES;
+    }
+
+    node = create_inode(path, attr);
+    insert_inode(res.parent, res.left, res.right, node);
+    return 0;
 }
 
 // 파일 삭제
@@ -641,10 +707,9 @@ int asdfs_unlink (const char *path) {
     search_result res;
     asdfs_errno code = find_inode(path, &res);
 
-    switch (code) {
+    switch (code & 0xFFFF) {
         case EXACT_FOUND:
-            destroy_inode(res.exact);
-            return 0;
+            break;
             
         case EXACT_NOT_FOUND:
         case HEAD_NOT_FOUND:
@@ -653,10 +718,20 @@ int asdfs_unlink (const char *path) {
         case HEAD_NOT_DIRECTORY:
             return -ENOTDIR;
             
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
         case GENERAL_ERROR:
         default:
             return -EIO;
     }
+
+    if (!(code & CAN_WRITE_PARENT)) {
+        return -EACCES;
+    }
+
+    destroy_inode(res.exact);
+    return 0;
 }
 
 // 파일 열기
@@ -665,14 +740,9 @@ int asdfs_open (const char *path, struct fuse_file_info *fi) {
     asdfs_errno code = find_inode(path, &res);
     inode *exact = res.exact;
     
-    switch (code) {
+    switch (code & 0xFFFF) {
         case EXACT_FOUND:
-            if (exact->attr.st_mode & S_IFDIR) {
-                return -EISDIR;
-            }
-            
-            fi->fh = (uint64_t)exact;
-            return 0;
+            break;
             
         case EXACT_NOT_FOUND:
         case HEAD_NOT_FOUND:
@@ -681,10 +751,29 @@ int asdfs_open (const char *path, struct fuse_file_info *fi) {
         case HEAD_NOT_DIRECTORY:
             return -ENOTDIR;
             
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
         case GENERAL_ERROR:
         default:
             return -EIO;
     }
+
+    if (exact->attr.st_mode & S_IFDIR) {
+        return -EISDIR;
+    }
+
+    int flags = fi->flags;
+    if (!(
+            (((flags & 3) == O_RDONLY) && (code & CAN_READ_EXACT))
+            || (((flags & 5) & O_WRONLY) && (code & CAN_WRITE_EXACT))
+            || (((flags & 1) & O_RDWR) && (code & CAN_READ_EXACT) && (code & CAN_WRITE_EXACT))
+        )) {
+        return -EACCES;
+    }
+
+    fi->fh = (uint64_t)exact;
+    return 0;
 }
 
 // 생성 및 수정 시간 변경
@@ -693,7 +782,7 @@ int asdfs_utimens (const char *path, const struct timespec tv[2]) {
     asdfs_errno code = find_inode(path, &res);
     inode *exact = res.exact;
 
-    switch (code) {
+    switch (code & 0xFFFF) {
         case EXACT_FOUND:
             exact->attr.st_atime = tv[0].tv_sec;
             exact->attr.st_mtime = tv[1].tv_sec;
@@ -706,16 +795,24 @@ int asdfs_utimens (const char *path, const struct timespec tv[2]) {
         case HEAD_NOT_DIRECTORY:
             return -ENOTDIR;
             
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
         case GENERAL_ERROR:
         default:
             return -EIO;
     }
 }
 
+// 파일 읽기
 int asdfs_read (const char *path, char *mem, size_t size, off_t off, struct fuse_file_info *fi) {
     inode *node = (inode *)fi->fh;
     if (node == NULL) {
         return -EIO;
+    }
+
+    if (node->attr.st_mode & S_IFDIR) {
+        return -EISDIR;
     }
 
     void *data = node->data;
@@ -731,14 +828,14 @@ int asdfs_read (const char *path, char *mem, size_t size, off_t off, struct fuse
     return size;
 }
 
+// 이미 있는 파일 크기 변경
 int asdfs_truncate (const char *path, off_t size) {
     search_result res;
     asdfs_errno code = find_inode(path, &res);
 
-    switch (code) {
+    switch (code & 0xFFFF) {
         case EXACT_FOUND:
-            alloc_data_inode(res.exact, size);
-            return 0;
+            break;
             
         case EXACT_NOT_FOUND:
         case HEAD_NOT_FOUND:
@@ -747,12 +844,23 @@ int asdfs_truncate (const char *path, off_t size) {
         case HEAD_NOT_DIRECTORY:
             return -ENOTDIR;
             
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
         case GENERAL_ERROR:
         default:
             return -EIO;
     }
+
+    if (!(code & CAN_WRITE_EXACT)) {
+        return -EACCES;
+    }
+
+    alloc_data_inode(res.exact, size);
+    return 0;
 }
 
+// 파일 쓰기
 int asdfs_write (const char *path, const char *mem, size_t size, off_t off, struct fuse_file_info *fi) {
     inode *node = (inode *)fi->fh;
     if (node == NULL) {
@@ -769,6 +877,122 @@ int asdfs_write (const char *path, const char *mem, size_t size, off_t off, stru
     return size;
 }
 
+int asdfs_chmod (const char *path, mode_t mode) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+    
+    switch (code & 0xFFFF) {
+        case EXACT_FOUND:
+            break;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
+        case HEAD_NOT_DIRECTORY:
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+
+    if (!(code & IS_OWNER)) {
+        return -EPERM;
+    }
+
+    res.exact->attr.st_mode = mode;
+    return 0;
+}
+
+int asdfs_chown (const char *path, uid_t uid, gid_t gid) {
+    search_result res;
+    asdfs_errno code = find_inode(path, &res);
+    
+    switch (code & 0xFFFF) {
+        case EXACT_FOUND:
+            break;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
+        case HEAD_NOT_DIRECTORY:
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+
+    struct fuse_context *context = fuse_get_context();
+    if (context->uid != 0) {
+        return -EPERM;
+    }
+
+    res.exact->attr.st_uid = uid;
+    res.exact->attr.st_gid = gid;
+    return 0;
+}
+
+int asdfs_rename (const char *oldpath, const char *newpath) {
+    search_result oldres;
+    asdfs_errno oldcode = find_inode(oldpath, &oldres);
+    
+    switch (oldcode & 0xFFFF) {
+        case EXACT_FOUND:
+            break;
+            
+        case EXACT_NOT_FOUND:
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
+        case HEAD_NOT_DIRECTORY:
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+
+    if (!(oldcode & CAN_WRITE_PARENT)) {
+        return -EACCES;
+    }
+
+    search_result newres;
+    asdfs_errno newcode = find_inode(newpath, &newres);
+    
+    switch (newcode & 0xFFFF) {
+        case EXACT_FOUND:
+            return -EEXIST;
+            
+        case EXACT_NOT_FOUND:
+            break;
+
+        case HEAD_NOT_FOUND:
+            return -ENOENT;
+
+        case HEAD_NO_PERMISSION:
+            return -EACCES;
+
+        case HEAD_NOT_DIRECTORY:
+        case GENERAL_ERROR:
+        default:
+            return -EIO;
+    }
+
+    if (!(newcode & CAN_WRITE_PARENT)) {
+        return -EACCES;
+    }
+
+    extract_inode(oldres.exact);
+    insert_inode(newres.parent, newres.left, newres.right, oldres.exact);
+    return 0;
+}
+
 static struct fuse_operations asdfs_oper = {
     .init     = asdfs_init,
     .statfs   = asdfs_statfs,
@@ -782,11 +1006,14 @@ static struct fuse_operations asdfs_oper = {
     .mknod    = asdfs_mknod,
     .unlink   = asdfs_unlink,
     .open     = asdfs_open,
+    .utimens  = asdfs_utimens,
     .read     = asdfs_read,
     .truncate = asdfs_truncate,
     .write    = asdfs_write,
 
-    .utimens  = asdfs_utimens,
+    .chmod    = asdfs_chmod,
+    .chown    = asdfs_chown,   
+    .rename   = asdfs_rename, 
 };
 
 int main(int argc, char *argv[]) {
