@@ -65,6 +65,7 @@ int can_chown(inode *node) {
 int can_read(inode *node) {
     struct fuse_context *context = fuse_get_context();
     uid_t curr_uid = context->uid;
+    uid_t curr_gid = context->gid;
 
     mode_t file_mode = node->attr.st_mode;
     uid_t file_uid = node->attr.st_uid;
@@ -101,6 +102,7 @@ int can_read(inode *node) {
 int can_write(inode *node) {
     struct fuse_context *context = fuse_get_context();
     uid_t curr_uid = context->uid;
+    uid_t curr_gid = context->gid;
 
     mode_t file_mode = node->attr.st_mode;
     uid_t file_uid = node->attr.st_uid;
@@ -137,6 +139,7 @@ int can_write(inode *node) {
 int can_execute(inode *node) {
     struct fuse_context *context = fuse_get_context();
     uid_t curr_uid = context->uid;
+    uid_t curr_gid = context->gid;
 
     mode_t file_mode = node->attr.st_mode;
     uid_t file_uid = node->attr.st_uid;
