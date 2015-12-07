@@ -345,6 +345,9 @@ asdfs_errno alloc_data_inode(inode *node, off_t size) {
     void *data = node->data;
     if (data == NULL) {
         data = calloc(1, new_blocks * block_size);
+    } else if (size == 0) {
+        free(data);
+        data = calloc(1, 0);        
     } else if (curr_blocks != new_blocks) {
         data = realloc(data, new_blocks * block_size);
     }
