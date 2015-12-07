@@ -312,6 +312,7 @@ asdfs_errno create_inode(const char *path, struct stat attr, inode **out) {
         }
 
         superblock.f_bfree--;
+        superblock.f_bavail--;
     }
     superblock.f_files++; // 파일 개수 증가
 
@@ -357,6 +358,7 @@ asdfs_errno alloc_data_inode(inode *node, off_t size) {
     node->attr.st_blocks = new_blocks;
 
     superblock.f_bfree = f_bfree;
+    superblock.f_bavail = f_bfree;
     return NO_ERROR;
 }
 
@@ -365,7 +367,10 @@ void dealloc_data_inode(inode *node) {
         free(node->data);
     }
 
-    superblock.f_bfree += node->attr.st_blocks;
+    fsblkcnt_t f_bfree = superblock.f_bfree;
+    f_bfree += node->attr.st_blocks;
+    superblock.f_bfree = f_bfree;
+    superblock.f_bavail = f_bfree;
 }
 
 void insert_inode(inode *parent, inode *left, inode *right, inode *new) {
@@ -459,6 +464,7 @@ void destroy_inode(inode *node) {
     fsfilcnt_t remainder = superblock.f_files % inodes_per_block;
     if (remainder == 1) { // 기존 블럭 해제 필요
         superblock.f_bfree--;
+        superblock.f_bavail--;
     }
     superblock.f_files--; // 파일 개수 감소
 }
