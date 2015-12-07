@@ -492,7 +492,7 @@ void insert_inode(search_result res, inode *new) {
     if (parent == NULL) {
         return;
     }
-    
+    // parent 지정
     new->parent = parent;
     
     // left 없고 right 없음
