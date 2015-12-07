@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DF137A631C155CB800CB2CB5 /* asdfs_internal.c in Sources */ = {isa = PBXBuildFile; fileRef = DF137A5F1C155CB800CB2CB5 /* asdfs_internal.c */; };
+		DF137A641C155CB800CB2CB5 /* asdfs.c in Sources */ = {isa = PBXBuildFile; fileRef = DF137A611C155CB800CB2CB5 /* asdfs.c */; };
 		DFAF5ADB1C082B6C005691FA /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = DFAF5ADA1C082B6C005691FA /* main.c */; };
 /* End PBXBuildFile section */
 
@@ -23,6 +25,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		DF137A5F1C155CB800CB2CB5 /* asdfs_internal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asdfs_internal.c; sourceTree = "<group>"; };
+		DF137A601C155CB800CB2CB5 /* asdfs_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = asdfs_internal.h; sourceTree = "<group>"; };
+		DF137A611C155CB800CB2CB5 /* asdfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asdfs.c; sourceTree = "<group>"; };
+		DF137A621C155CB800CB2CB5 /* asdfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = asdfs.h; sourceTree = "<group>"; };
 		DFAF5AD71C082B6C005691FA /* FUSE_Project */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = FUSE_Project; sourceTree = BUILT_PRODUCTS_DIR; };
 		DFAF5ADA1C082B6C005691FA /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		DFF7A8661C0EFBFF000B55B1 /* fuse */ = {isa = PBXFileReference; lastKnownFileType = folder; path = fuse; sourceTree = SOURCE_ROOT; };
@@ -60,6 +66,10 @@
 			children = (
 				DFF7A8661C0EFBFF000B55B1 /* fuse */,
 				DFAF5ADA1C082B6C005691FA /* main.c */,
+				DF137A5F1C155CB800CB2CB5 /* asdfs_internal.c */,
+				DF137A601C155CB800CB2CB5 /* asdfs_internal.h */,
+				DF137A611C155CB800CB2CB5 /* asdfs.c */,
+				DF137A621C155CB800CB2CB5 /* asdfs.h */,
 			);
 			path = FUSE_Project;
 			sourceTree = "<group>";
@@ -119,6 +129,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DF137A641C155CB800CB2CB5 /* asdfs.c in Sources */,
+				DF137A631C155CB800CB2CB5 /* asdfs_internal.c in Sources */,
 				DFAF5ADB1C082B6C005691FA /* main.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -34,14 +34,14 @@ int asdfs_readdir (const char *path, void *buf, fuse_fill_dir_t filer, off_t off
 // 파일 생성
 int asdfs_mknod (const char *path, mode_t mode, dev_t rdev);
 
+// 생성 및 수정 시간 변경
+int asdfs_utimens (const char *path, const struct timespec tv[2]);
+
 // 파일 삭제
 int asdfs_unlink (const char *path);
 
 // 파일 열기
 int asdfs_open (const char *path, struct fuse_file_info *fi);
-
-// 생성 및 수정 시간 변경
-int asdfs_utimens (const char *path, const struct timespec tv[2]);
 
 // 파일 읽기
 int asdfs_read (const char *path, char *mem, size_t size, off_t off, struct fuse_file_info *fi);
@@ -60,28 +60,5 @@ int asdfs_chown (const char *path, uid_t uid, gid_t gid);
 
 // 파일 이동
 int asdfs_rename (const char *oldpath, const char *newpath);
-
-static struct fuse_operations asdfs_oper = {
-    .init     = asdfs_init,
-    .statfs   = asdfs_statfs,
-    .getattr  = asdfs_getattr,
-
-    .mkdir    = asdfs_mkdir,
-    .rmdir    = asdfs_rmdir,
-    .opendir  = asdfs_opendir,
-    .readdir  = asdfs_readdir,
-
-    .mknod    = asdfs_mknod,
-    .unlink   = asdfs_unlink,
-    .open     = asdfs_open,
-    .utimens  = asdfs_utimens,
-    .read     = asdfs_read,
-    .truncate = asdfs_truncate,
-    .write    = asdfs_write,
-
-    .chmod    = asdfs_chmod,
-    .chown    = asdfs_chown,   
-    .rename   = asdfs_rename, 
-};
 
 #endif

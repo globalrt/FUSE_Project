@@ -1,4 +1,11 @@
-# Ubuntu 14.04.3 LTS / gcc 4.8.4 / fusermount 2.9.2 / libfuse-dev
+# Requirements
+# - Ubuntu 14.04.3 LTS
+# - gcc 4.8.4
+# - fusermount 2.9.2
+# - libfuse-dev
+
+# $ make
+# $ ./asdfs [MOUNTPOINT] -o uid=[UID] -o gid=[GID] -o allow_root -o auto_cache
 
 CC=gcc
 LD=ld
